@@ -5,84 +5,90 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/lypolix/todo-app"
+	"github.com/lypolix/todo-app/pkg/cache"
 	"github.com/lypolix/todo-app/pkg/handler"
 	"github.com/lypolix/todo-app/pkg/repository"
 	"github.com/lypolix/todo-app/pkg/service"
+	"github.com/lypolix/todo-app/pkg/websocket"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-// @title Todo App API 
-// @version 1.0
-// @description API Server for Todo
-
-// @host localhost:8000
-// @BasePath /
-
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name Authorization
-
-
-func main(){
+func main() {
 	
-	logrus.SetFormatter(new(logrus.JSONFormatter))
-	if err := initConfig(); err != nil {
-		logrus.Fatalf ("error initializing configs: %s", err.Error())
-	}
+	logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: time.RFC3339})
 
+	if err := initConfig(); err != nil {
+		logrus.Fatalf("init config: %v", err)
+	}
 	if err := godotenv.Load(); err != nil {
-		logrus.Fatalf("error loading env variables: %s", err.Error())
+		logrus.Fatalf("load .env: %v", err)
 	}
 
 	db, err := repository.NewPostgresDB(repository.Config{
-		Host: viper.GetString("db.host"),
-		Port: viper.GetString("db.port"),
+		Host:     viper.GetString("db.host"),
+		Port:     viper.GetString("db.port"),
 		Username: viper.GetString("db.username"),
-		DBName: viper.GetString("db.dbname"),
-		SSLMode: viper.GetString("db.sslmode"),
+		DBName:   viper.GetString("db.dbname"),
+		SSLMode:  viper.GetString("db.sslmode"),
 		Password: os.Getenv("DB_PASSWORD"),
 	})
-
 	if err != nil {
-		logrus.Fatalf("failed to ititializedb: %s", err.Error())
+		logrus.Fatalf("postgres: %v", err)
 	}
 
-	repos := repository.NewRepository(db)
-	services := service.NewService(repos)
-	handlers := handler.NewHandler(services)
+	redisClient, err := cache.NewRedisClient(cache.RedisConfig{
+		Host:     viper.GetString("redis.host"),
+		Port:     viper.GetString("redis.port"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       viper.GetInt("redis.db"),
+	})
+	if err != nil {
+		logrus.Fatalf("redis: %v", err)
+	}
+	cacheService := cache.NewCacheService(redisClient)
 
+	
+	wsHub := websocket.NewHub()
+	go wsHub.Run()
+
+	
+	repos := repository.NewRepository(db)
+	services := service.NewService(repos, cacheService, wsHub)
+	handlers := handler.NewHandler(services, wsHub)
+
+	
 	srv := new(todo.Server)
-	go func () {
+	go func() {
 		if err := srv.Run(viper.GetString("port"), handlers.InitRoutes()); err != nil {
-			logrus.Fatalf("error occured while running http server: %s", err.Error())
+			logrus.Fatalf("http server: %v", err)
 		}
 	}()
+	logrus.Info("TodoApp started")
 
-	logrus.Print("TodoApp Started")
-
+	
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
-	<- quit
-
-	logrus.Print("TodoApp Shutting Down")
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logrus.Info("shutting down")
 
 	if err := srv.Shutdown(context.Background()); err != nil {
-		logrus.Errorf("error occured on server shutting down: %s", err.Error())
+		logrus.Errorf("server shutdown: %v", err)
 	}
-
 	if err := db.Close(); err != nil {
-		logrus.Errorf("error occured on db connection close: %s", err.Error())
+		logrus.Errorf("db close: %v", err)
+	}
+	if err := redisClient.Close(); err != nil {
+		logrus.Errorf("redis close: %v", err)
 	}
 }
 
-
-
-func initConfig() error{
+func initConfig() error {
 	viper.AddConfigPath("configs")
 	viper.SetConfigName("config")
 	return viper.ReadInConfig()

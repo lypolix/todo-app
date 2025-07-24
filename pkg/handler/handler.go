@@ -3,15 +3,29 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/lypolix/todo-app/pkg/service"
+	"github.com/lypolix/todo-app/pkg/websocket" // Добавлен импорт websocket
 	
 	"github.com/swaggo/gin-swagger"
 	"github.com/swaggo/files"
 
-	_"github.com/lypolix/todo-app/docs"
-    
+	_ "github.com/lypolix/todo-app/docs"
 )
 
-//создание обработчиков и присвоение их к маршруту
+// Handler структура для обработчиков
+type Handler struct {
+	services *service.Service
+	hub      *websocket.Hub
+}
+
+// NewHandler создает новый экземпляр Handler
+func NewHandler(services *service.Service, hub *websocket.Hub) *Handler {
+	return &Handler{
+		services: services,
+		hub:      hub,
+	}
+}
+
+// InitRoutes инициализирует маршруты
 // @Summary SignUp
 // @Tags auth
 // @Description create account
@@ -22,19 +36,10 @@ import (
 // @Failure 400 {object} errorResponse
 // @Failure 500 {object} errorResponse
 // @Router /auth/sign-up [post]
-
-type Handler struct{
-	services *service.Service
-}
-
-
-func NewHandler(services *service.Service) *Handler{
-	return &Handler{services: services}
-}
-
-
 func (h *Handler) InitRoutes() *gin.Engine {
 	router := gin.New()
+
+	
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	
@@ -68,5 +73,4 @@ func (h *Handler) InitRoutes() *gin.Engine {
 		}
 	}
 	return router
-
 }
