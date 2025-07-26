@@ -161,6 +161,15 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/todo.User"
                         }
+                    },
+                    {
+                        "description": "account info",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/todo.User"
+                        }
                     }
                 ],
                 "responses": {
@@ -192,6 +201,46 @@ const docTemplate = `{
                         "description": "",
                         "schema": {
                             "$ref": "#/definitions/handler.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/test": {
+            "get": {
+                "description": "Simple test endpoint",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "test"
+                ],
+                "summary": "Test endpoint",
+                "responses": {
+                    "200": {
+                        "description": "Test is successful",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/ws": {
+            "get": {
+                "description": "Establish WebSocket connection",
+                "tags": [
+                    "websocket"
+                ],
+                "summary": "WebSocket endpoint",
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }

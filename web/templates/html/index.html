@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo App - Deadline Notifications</title>
+    <!-- Bootstrap CSS -->
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .notification-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        #notifications {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            background-color: #f8f9fa;
+        }
+        
+        .notification {
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        
+        .notification:hover {
+            transform: translateX(5px);
+        }
+        
+        .notification-info {
+            background-color: #e7f5ff;
+            border-left-color: #4dabf7;
+        }
+        
+        .notification-warning {
+            background-color: #fff3bf;
+            border-left-color: #ffd43b;
+        }
+        
+        .notification-danger {
+            background-color: #ffecf1;
+            border-left-color: #ff6b6b;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .notification-success {
+            background-color: #ebfbee;
+            border-left-color: #40c057;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .notification-time {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+        
+        .notification-message {
+            margin-bottom: 5px;
+        }
+        
+        .deadline-info {
+            font-size: 0.85rem;
+            color: #495057;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            z-index: 1000;
+        }
+        
+        .connected {
+            background-color: #40c057;
+            color: white;
+        }
+        
+        .disconnected {
+            background-color: #fa5252;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="notification-container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Deadline Notifications</h1>
+            <div id="connectionStatus" class="connection-status disconnected">Disconnected</div>
+        </div>
+        
+        <div id="notifications">
+            <!-- Notifications will appear here -->
+        </div>
+        
+        <div class="d-grid gap-2">
+            <button id="testNotificationBtn" class="btn btn-outline-primary">
+                Send Test Notification
+            </button>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // WebSocket connection
+        const socket = new WebSocket('ws://' + window.location.host + '/ws');
+        const notificationsEl = document.getElementById('notifications');
+        const connectionStatusEl = document.getElementById('connectionStatus');
+        const testNotificationBtn = document.getElementById('testNotificationBtn');
+        
+        // Connection status management
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatusEl.textContent = 'Connected';
+                connectionStatusEl.classList.remove('disconnected');
+                connectionStatusEl.classList.add('connected');
+            } else {
+                connectionStatusEl.textContent = 'Disconnected';
+                connectionStatusEl.classList.remove('connected');
+                connectionStatusEl.classList.add('disconnected');
+            }
+        }
+        
+        // Add notification to the UI
+        function addNotification(notificationData) {
+            const now = new Date();
+            const deadlineDate = new Date(notificationData.deadline);
+            const timeLeft = deadlineDate - now;
+            const minutesLeft = Math.floor(timeLeft / 60000);
+            
+            const notification = document.createElement('div');
+            let notificationClass = 'notification-info';
+            let title = notificationData.title;
+            
+            // Determine notification type and styling
+            if (notificationData.type === 'deadline') {
+                if (timeLeft <= 0) {
+                    notificationClass = 'notification-success';
+                    title = '✓ ' + title;
+                } else if (minutesLeft < 30) {
+                    notificationClass = 'notification-danger';
+                    title = '⚠ ' + title;
+                } else {
+                    notificationClass = 'notification-warning';
+                    title = '⏱ ' + title;
+                }
+            }
+            
+            notification.className = `notification ${notificationClass}`;
+            
+            // Format time left
+            let timeLeftText = '';
+            if (timeLeft > 0) {
+                const hours = Math.floor(minutesLeft / 60);
+                const mins = minutesLeft % 60;
+                timeLeftText = `${hours}h ${mins}m left`;
+            } else {
+                timeLeftText = 'Deadline passed';
+            }
+            
+            notification.innerHTML = `
+                <div class="notification-title">
+                    <span>${title}</span>
+                    <span class="notification-time">${new Date().toLocaleTimeString()}</span>
+                </div>
+                <div class="notification-message">${notificationData.message}</div>
+                <div class="deadline-info">
+                    <strong>Deadline:</strong> ${deadlineDate.toLocaleString()}
+                    ${timeLeft > 0 ? ` (${timeLeftText})` : ''}
+                </div>
+            `;
+            
+            // Add to the top of notifications
+            notificationsEl.insertBefore(notification, notificationsEl.firstChild);
+            
+            // Play sound for important notifications
+            if (notificationData.type === 'deadline' && timeLeft > 0) {
+                try {
+                    new Audio('/static/sounds/notification.mp3').play();
+                } catch (e) {
+                    console.error('Error playing notification sound:', e);
+                }
+            }
+            
+            // Auto-scroll to top
+            notificationsEl.scrollTop = 0;
+        }
+        
+        // WebSocket event handlers
+        socket.addEventListener('open', () => {
+            updateConnectionStatus(true);
+            addNotification({
+                type: 'info',
+                title: 'System',
+                message: 'Connected to notification service',
+                deadline: new Date().toISOString()
+            });
+        });
+        
+        socket.addEventListener('close', () => {
+            updateConnectionStatus(false);
+            addNotification({
+                type: 'error',
+                title: 'System',
+                message: 'Disconnected from server. Trying to reconnect...',
+                deadline: new Date().toISOString()
+            });
+            
+            // Try to reconnect every 5 seconds
+            setTimeout(() => {
+                window.location.reload();
+            }, 5000);
+        });
+        
+        socket.addEventListener('message', (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                addNotification({
+                    type: data.type || 'info',
+                    title: data.task || 'Notification',
+                    message: data.message || 'New update',
+                    deadline: data.deadline || new Date().toISOString()
+                });
+            } catch (e) {
+                console.error('Error parsing notification:', e);
+            }
+        });
+        
+        socket.addEventListener('error', (error) => {
+            console.error('WebSocket error:', error);
+            addNotification({
+                type: 'error',
+                title: 'Connection Error',
+                message: 'There was a problem with the connection',
+                deadline: new Date().toISOString()
+            });
+        });
+        
+        // Test notification button
+        testNotificationBtn.addEventListener('click', () => {
+            const testDeadline = new Date();
+            testDeadline.setMinutes(testDeadline.getMinutes() + 15);
+            
+            addNotification({
+                type: 'deadline',
+                title: 'Test Task',
+                message: 'This is a test notification for demonstration purposes',
+                deadline: testDeadline.toISOString()
+            });
+        });
+    </script>
+</body>
+</html>

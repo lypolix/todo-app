@@ -137,6 +137,12 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/todo.User'
+      - description: account info
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/todo.User'
       produces:
       - application/json
       responses:
@@ -163,6 +169,32 @@ paths:
       summary: SignUp
       tags:
       - auth
+  /test:
+    get:
+      consumes:
+      - application/json
+      description: Simple test endpoint
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Test is successful
+          schema:
+            type: string
+      summary: Test endpoint
+      tags:
+      - test
+  /ws:
+    get:
+      description: Establish WebSocket connection
+      responses:
+        "101":
+          description: Switching Protocols
+          schema:
+            type: string
+      summary: WebSocket endpoint
+      tags:
+      - websocket
 securityDefinitions:
   ApiKeyAuth:
     in: header

@@ -12,11 +12,12 @@ import (
 	"github.com/lypolix/todo-app/pkg/handler"
 	"github.com/lypolix/todo-app/pkg/repository"
 	"github.com/lypolix/todo-app/pkg/service"
+	"github.com/lypolix/todo-app/pkg/wsserver"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
-// @title Todo App API 
+// @title Todo App API
 // @version 1.0
 // @description API Server for Todo
 
@@ -29,7 +30,14 @@ import (
 
 
 func main(){
-	
+
+	server := wsserver.NewWsServer(":8000")
+	logrus.Info("Started ws server")
+	if err := server.Start(); err != nil {
+		logrus.Errorf("Error with ws server: %v", err)
+	}
+  
+
 	logrus.SetFormatter(new(logrus.JSONFormatter))
 	if err := initConfig(); err != nil {
 		logrus.Fatalf ("error initializing configs: %s", err.Error())
