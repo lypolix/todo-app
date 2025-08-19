@@ -1,6 +1,9 @@
 package todo
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 type TodoList struct {
 	Id int `json:"id" db:"id"`
@@ -19,6 +22,7 @@ type TodoItem struct{
 	Title string `json:"title" db:"title" binding:"required"`
 	Description string `json:"description" db:"description"`
 	Done bool `json:"done" db:"done"`
+	Deadline time.Time `json:"deadline"`
 }
 
 type ListsItem struct{
@@ -45,6 +49,7 @@ type UpdateItemInput struct {
 	Title *string `json:"title"`
 	Description *string `json:"description"`
 	Done *bool `json:"done"`
+	Deadline *time.Time `json:"deadline"`
 }
 
 func (i UpdateItemInput) Validate() error {
